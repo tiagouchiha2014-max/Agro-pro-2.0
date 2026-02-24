@@ -1,4 +1,4 @@
-<meta name='viewport' content='width=device-width, initial-scale=1'/>import { setTopbar } from "../ui/shell.js";
+import { setTopbar } from "../ui/shell.js";
 
 export async function render({ orgCtx }) {
   setTopbar({ title: "Fazendas", meta: orgCtx.org_nome });
