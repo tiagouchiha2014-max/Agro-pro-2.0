@@ -1,2 +1,0 @@
-<meta name='viewport' content='width=device-width, initial-scale=1'/>export const SUPABASE_URL = "https://hbmhouqdjvfipebvzwji.supabase.co";
-export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhibWhvdXFkanZmaXBlYnZ6d2ppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE4ODQ1MzksImV4cCI6MjA4NzQ2MDUzOX0.iCvvDd7VxczfBMyZ0sqDTgmrihRbqdcK6yF0mcSHDow";
