@@ -1,7 +1,13 @@
 import { supabase, getSession } from "./supabaseClient.js";
 import { toast } from "./ui/toast.js";
 
-// Mostra erros na tela (tablet-friendly)
+// ✅ Anti boot duplicado (evita lock/session bug em alguns tablets)
+if (window.__AUTH_BOOTED__) {
+  throw new Error("Auth boot duplicado (authpage.js carregado duas vezes)");
+}
+window.__AUTH_BOOTED__ = true;
+
+// ✅ Erros visíveis na tela (tablet-friendly)
 window.addEventListener("error", (e) => {
   document.body.innerHTML = `<pre style="white-space:pre-wrap;padding:12px;font:14px/1.4 system-ui;background:#111;color:#fff">
 ERRO JS:
@@ -58,30 +64,36 @@ function renderAuth(root) {
     return;
   }
 
-  // Renderiza ANTES de qualquer chamada ao Supabase (evita “azul vazio”)
+  // ✅ Renderiza antes do Supabase (evita tela vazia)
   renderAuth(root);
 
-  // Se getSession estiver quebrado/undefined, a tela vai mostrar aqui
-  let session = null;
-  if (typeof getSession === "function") {
-    session = await getSession();
-  } else {
-    toast("getSession() não existe em supabaseClient.js", "error");
-  }
-
-  if (session) {
-    location.href = "./index.html#/dashboard";
-    return;
+  // ✅ Se já tem sessão, manda pro app
+  try {
+    const session = await getSession({ timeoutMs: 6000 });
+    if (session) {
+      location.href = "./index.html#/dashboard";
+      return;
+    }
+  } catch (e) {
+    console.warn("getSession falhou:", e);
   }
 
   const formLogin = root.querySelector("#formLogin");
   const formSignup = root.querySelector("#formSignup");
 
+  if (!formLogin || !formSignup) {
+    toast("Tela de login corrompida (forms não encontrados).", "error");
+    return;
+  }
+
+  // LOGIN
   formLogin.addEventListener("submit", async (e) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const email = String(fd.get("email") || "").trim();
     const password = String(fd.get("password") || "");
+
+    if (!email || !password) return toast("Informe email e senha.", "error");
 
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return toast(error.message, "error");
@@ -89,12 +101,17 @@ function renderAuth(root) {
     location.href = "./index.html#/dashboard";
   });
 
+  // SIGNUP
   formSignup.addEventListener("submit", async (e) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const nome = String(fd.get("nome") || "").trim();
     const email = String(fd.get("email") || "").trim();
     const password = String(fd.get("password") || "");
+
+    if (!nome) return toast("Informe seu nome.", "error");
+    if (!email || !password) return toast("Informe email e senha.", "error");
+    if (password.length < 8) return toast("Senha mínima de 8 caracteres.", "error");
 
     const { error } = await supabase.auth.signUp({
       email,
