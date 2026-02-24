@@ -1,4 +1,4 @@
-<meta name='viewport' content='width=device-width, initial-scale=1'/>import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./env.js";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./env.js";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
