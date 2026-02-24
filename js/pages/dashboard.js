@@ -1,9 +1,8 @@
-import { setTopbar } from "../Ui/shell.js";
-import { esc } from "../Utils/dom.js";
+import { setTopbar } from "../ui/shell.js";
+import { esc } from "../utils/dom.js";
 
 export async function render({ orgCtx }) {
   setTopbar({ title: "Dashboard", meta: orgCtx.org_nome });
-
   const el = document.getElementById("content");
   el.innerHTML = `
     <div class="card">
@@ -13,4 +12,3 @@ export async function render({ orgCtx }) {
     </div>
   `;
 }
- 
