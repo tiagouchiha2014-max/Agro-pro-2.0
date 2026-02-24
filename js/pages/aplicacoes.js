@@ -5,6 +5,19 @@ import { listTalhoes } from "../services/talhoesService.js";
 import { listProdutos } from "../services/estoqueService.js";
 import { listAplicacoes, createAplicacao, deleteAplicacao } from "../services/aplicacoesService.js";
 
+function toNum(v) {
+  const n = Number(String(v || "").replace(",", "."));
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function todayISODate() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export async function render({ farmCtx }) {
   setTopbar({ title: "Aplicações", meta: farmCtx?.fazenda_nome || "" });
 
@@ -13,23 +26,26 @@ export async function render({ farmCtx }) {
     <div class="card">
       <h2>Nova Aplicação</h2>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-        <select id="a_talhao" style="min-width:240px"></select>
-        <input id="a_data" type="date" />
+        <select id="a_talhao" style="min-width:260px"></select>
+        <input id="a_data" type="date" style="width:170px" />
         <input id="a_obs" placeholder="Observação" style="min-width:240px" />
       </div>
 
       <div class="sep"></div>
 
-      <div class="muted">Itens (produto + quantidade)</div>
+      <div class="muted">Itens (produto + qtd)</div>
       <div id="itens"></div>
+
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-        <button class="btn" id="btnAddItem">+ Item</button>
-        <button class="btn primary" id="btnSalvar">Salvar aplicação</button>
+        <button class="btn" id="btnAddItem" type="button">+ Item</button>
+        <button class="btn primary" id="btnSalvar" type="button">Salvar aplicação</button>
       </div>
     </div>
 
     <div class="card" style="margin-top:12px">
       <h2>Histórico</h2>
+      <div class="muted">Ao salvar, o sistema gera baixa no estoque (OUT) com referência da aplicação.</div>
+      <div class="sep"></div>
       <div id="hist"></div>
     </div>
   `;
@@ -37,6 +53,7 @@ export async function render({ farmCtx }) {
   const selTalhao = el.querySelector("#a_talhao");
   const itensBox = el.querySelector("#itens");
   const histBox = el.querySelector("#hist");
+  el.querySelector("#a_data").value = todayISODate();
 
   let produtos = [];
   let talhoes = [];
@@ -49,14 +66,14 @@ export async function render({ farmCtx }) {
     row.style.marginTop = "8px";
 
     row.innerHTML = `
-      <select class="it_prod" style="min-width:240px"></select>
-      <input class="it_qtd" placeholder="Quantidade" inputmode="decimal" style="width:140px" />
+      <select class="it_prod" style="min-width:260px"></select>
+      <input class="it_qtd" placeholder="Qtd" inputmode="decimal" style="width:140px" />
       <button class="btn it_del" type="button">Remover</button>
     `;
 
     const sel = row.querySelector(".it_prod");
     sel.innerHTML = produtos.length
-      ? produtos.map(p => `<option value="${p.id}">${esc(p.nome)}${p.unidade ? " ("+esc(p.unidade)+")" : ""}</option>`).join("")
+      ? produtos.map(p => `<option value="${p.id}">${esc(p.nome)}${p.unidade ? " (" + esc(p.unidade) + ")" : ""}</option>`).join("")
       : `<option value="">— cadastre produtos —</option>`;
 
     row.querySelector(".it_del").onclick = () => row.remove();
@@ -71,7 +88,6 @@ export async function render({ farmCtx }) {
       ? talhoes.map(t => `<option value="${t.id}">${esc(t.nome)}</option>`).join("")
       : `<option value="">— cadastre talhões —</option>`;
 
-    // garante 1 item
     itensBox.innerHTML = "";
     addItemRow();
 
@@ -82,9 +98,9 @@ export async function render({ farmCtx }) {
           <tbody>
             ${hist.map(a => `
               <tr>
-                <td>${esc(String(a.data||""))}</td>
-                <td>${esc(talhoes.find(t=>t.id===a.talhao_id)?.nome || a.talhao_id || "")}</td>
-                <td>${esc(a.obs||"")}</td>
+                <td>${esc(String(a.data || ""))}</td>
+                <td>${esc(talhoes.find(t=>t.id===a.talhao_id)?.nome || "")}</td>
+                <td>${esc(a.obs || "")}</td>
                 <td><button class="btn" data-del="${a.id}">Excluir</button></td>
               </tr>
             `).join("")}
@@ -99,34 +115,35 @@ export async function render({ farmCtx }) {
     try {
       const talhao_id = selTalhao.value;
       if (!talhao_id) return toast("Cadastre/Selecione um talhão.", "error");
+      if (!produtos.length) return toast("Cadastre produtos antes.", "error");
 
-      const data = el.querySelector("#a_data").value || new Date().toISOString().slice(0,10);
-      const obs = (el.querySelector("#a_obs").value||"").trim() || null;
+      const data = el.querySelector("#a_data").value || todayISODate();
+      const obs = (el.querySelector("#a_obs").value || "").trim() || null;
 
-      const itens = Array.from(itensBox.querySelectorAll("div")).map(row => {
+      const itens = Array.from(itensBox.children).map(row => {
         const produto_id = row.querySelector(".it_prod")?.value;
-        const qtdRaw = String(row.querySelector(".it_qtd")?.value || "").replace(",", ".");
-        return { produto_id, quantidade: Number(qtdRaw) };
+        const qtd = toNum(row.querySelector(".it_qtd")?.value);
+        return { produto_id, qtd };
       });
 
-      if (!itens.some(i => i.produto_id && Number(i.quantidade) > 0)) {
+      if (!itens.some(i => i.produto_id && Number(i.qtd) > 0)) {
         return toast("Adicione ao menos 1 item válido.", "error");
       }
 
       await createAplicacao({
         fazenda_id: farmCtx.fazenda_id,
         talhao_id,
-        data,
+        data, // date string
         obs,
-        itens
+        itens,
       });
 
-      toast("Aplicação salva. Estoque baixado.", "success");
+      toast("Aplicação salva. Estoque baixado (OUT).", "success");
       el.querySelector("#a_obs").value = "";
       await refresh();
     } catch (e) {
       console.error(e);
-      toast(e.message || "Erro ao salvar aplicação", "error");
+      toast(e?.message || "Erro ao salvar aplicação", "error");
     }
   };
 
@@ -134,13 +151,14 @@ export async function render({ farmCtx }) {
     const id = ev.target?.dataset?.del;
     if (!id) return;
     if (!confirm("Excluir aplicação? (não estorna estoque ainda)")) return;
+
     try {
       await deleteAplicacao(id, farmCtx.fazenda_id);
       toast("Aplicação excluída.", "success");
       await refresh();
     } catch (e) {
       console.error(e);
-      toast(e.message || "Erro", "error");
+      toast(e?.message || "Erro ao excluir", "error");
     }
   });
 
