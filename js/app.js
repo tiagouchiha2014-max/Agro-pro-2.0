@@ -1,4 +1,4 @@
-<meta name='viewport' content='width=device-width, initial-scale=1'/>import { requireAuth, loadOrgCtx } from "./session.js";
+import { requireAuth, loadOrgCtx } from "./session.js";
 import { renderShell, setActiveMenu } from "./ui/shell.js";
 import { toast } from "./ui/toast.js";
 
