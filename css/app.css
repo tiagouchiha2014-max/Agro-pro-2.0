@@ -1,4 +1,4 @@
-<meta name='viewport' content='width=device-width, initial-scale=1'/><style>:root{ --bg:#0b1220; --card:#0f1a2e; --line:rgba(255,255,255,.08); --text:#e5e7eb; --muted:#9aa4b2; --brand:#3b82f6; }
+:root{ --bg:#0b1220; --card:#0f1a2e; --line:rgba(255,255,255,.08); --text:#e5e7eb; --muted:#9aa4b2; --brand:#3b82f6; }
 
 *{ box-sizing:border-box; }
 body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto; background:var(--bg); color:var(--text); }
