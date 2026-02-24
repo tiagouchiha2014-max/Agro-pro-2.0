@@ -3,9 +3,17 @@ import { toast } from "./ui/toast.js";
 
 (async function bootAuth() {
   const session = await getSession();
-  if (session) location.href = "./index.html#/dashboard";
+  if (session) {
+    location.href = "./index.html#/dashboard";
+    return;
+  }
 
   const root = document.getElementById("auth");
+  if (!root) {
+    document.body.innerHTML = "<pre>Erro: #auth não encontrado no login.html</pre>";
+    return;
+  }
+
   root.innerHTML = `
     <div class="auth-card">
       <h1>Agro Pro</h1>
@@ -27,9 +35,6 @@ import { toast } from "./ui/toast.js";
         <label>Nome</label>
         <input name="nome" type="text" required maxlength="60" autocomplete="name" />
 
-        <label>Empresa</label>
-        <input name="empresa" type="text" required maxlength="60" />
-
         <label>Email</label>
         <input name="email" type="email" required autocomplete="email" />
 
@@ -41,41 +46,42 @@ import { toast } from "./ui/toast.js";
     </div>
   `;
 
+  // LOGIN
   root.querySelector("#formLogin").addEventListener("submit", async (e) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const email = String(fd.get("email") || "").trim();
     const password = String(fd.get("password") || "");
 
-    try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      location.href = "./index.html#/dashboard";
-    } catch (err) {
-      toast(err?.message || "Falha no login", "error");
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      toast(error.message, "error");
+      return;
     }
+
+    location.href = "./index.html#/dashboard";
   });
 
+  // SIGNUP
   root.querySelector("#formSignup").addEventListener("submit", async (e) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const nome = String(fd.get("nome") || "").trim();
-    const empresa = String(fd.get("empresa") || "").trim();
     const email = String(fd.get("email") || "").trim();
     const password = String(fd.get("password") || "");
 
-    try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { nome, empresa } },
-      });
-      if (error) throw error;
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { nome } },
+    });
 
-      toast("Conta criada! Faça login.", "success");
-      e.currentTarget.reset();
-    } catch (err) {
-      toast(err?.message || "Falha no cadastro", "error");
+    if (error) {
+      toast(error.message, "error");
+      return;
     }
+
+    toast("Conta criada! Faça login.", "success");
+    e.currentTarget.reset();
   });
 })();
