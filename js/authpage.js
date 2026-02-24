@@ -1,4 +1,4 @@
-<meta name='viewport' content='width=device-width, initial-scale=1'/>import { supabase, getSession } from "./supabaseClient.js";
+import { supabase, getSession } from "./supabaseClient.js";
 import { toast } from "./ui/toast.js";
 
 (async function bootAuth() {
