@@ -1,4 +1,4 @@
-<meta name='viewport' content='width=device-width, initial-scale=1'/>import { getSession, supabase } from "./supabaseClient.js";
+import { getSession, supabase } from "./supabaseClient.js";
 
 const LS_ORG = "agro_org_ctx_v1";
 let orgCtxMem = null;
