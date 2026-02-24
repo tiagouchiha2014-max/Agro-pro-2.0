@@ -1,4 +1,4 @@
-<meta name='viewport' content='width=device-width, initial-scale=1'/>// Js/Pages/dashboard.js
+viewport' content='width=device-width, initial-scale=1'/>// Js/Pages/dashboard.js
 import { setTopbar } from "../Ui/shell.js";
 import { esc } from "../Utils/dom.js";
 
