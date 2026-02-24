@@ -46,24 +46,26 @@ import { toast } from "./ui/toast.js";
     </div>
   `;
 
-  // LOGIN
-  root.querySelector("#formLogin").addEventListener("submit", async (e) => {
+  const formLogin = root.querySelector("#formLogin");
+  const formSignup = root.querySelector("#formSignup");
+  if (!formLogin || !formSignup) {
+    toast("Tela de login corrompida (forms não encontrados).", "error");
+    return;
+  }
+
+  formLogin.addEventListener("submit", async (e) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const email = String(fd.get("email") || "").trim();
     const password = String(fd.get("password") || "");
 
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      toast(error.message, "error");
-      return;
-    }
+    if (error) return toast(error.message, "error");
 
     location.href = "./index.html#/dashboard";
   });
 
-  // SIGNUP
-  root.querySelector("#formSignup").addEventListener("submit", async (e) => {
+  formSignup.addEventListener("submit", async (e) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const nome = String(fd.get("nome") || "").trim();
@@ -76,10 +78,7 @@ import { toast } from "./ui/toast.js";
       options: { data: { nome } },
     });
 
-    if (error) {
-      toast(error.message, "error");
-      return;
-    }
+    if (error) return toast(error.message, "error");
 
     toast("Conta criada! Faça login.", "success");
     e.currentTarget.reset();
