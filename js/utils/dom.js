@@ -15,4 +15,4 @@ export const esc = escapeHtml;
 export function on(el, event, handler, opts) {
   el.addEventListener(event, handler, opts);
   return () => el.removeEventListener(event, handler, opts);
-}</script>
+}
