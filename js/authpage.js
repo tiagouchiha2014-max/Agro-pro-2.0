@@ -1,19 +1,23 @@
 import { supabase, getSession } from "./supabaseClient.js";
 import { toast } from "./ui/toast.js";
 
-(async function bootAuth() {
-  const session = await getSession();
-  if (session) {
-    location.href = "./index.html#/dashboard";
-    return;
-  }
+// Mostra erros na tela (tablet-friendly)
+window.addEventListener("error", (e) => {
+  document.body.innerHTML = `<pre style="white-space:pre-wrap;padding:12px;font:14px/1.4 system-ui;background:#111;color:#fff">
+ERRO JS:
+${e.message}
+${e.filename}:${e.lineno}:${e.colno}
+</pre>`;
+});
 
-  const root = document.getElementById("auth");
-  if (!root) {
-    document.body.innerHTML = "<pre>Erro: #auth não encontrado no login.html</pre>";
-    return;
-  }
+window.addEventListener("unhandledrejection", (e) => {
+  document.body.innerHTML = `<pre style="white-space:pre-wrap;padding:12px;font:14px/1.4 system-ui;background:#111;color:#fff">
+PROMISE REJEITADA:
+${String(e.reason?.message || e.reason)}
+</pre>`;
+});
 
+function renderAuth(root) {
   root.innerHTML = `
     <div class="auth-card">
       <h1>Agro Pro</h1>
@@ -45,13 +49,33 @@ import { toast } from "./ui/toast.js";
       </form>
     </div>
   `;
+}
+
+(async function bootAuth() {
+  const root = document.getElementById("auth");
+  if (!root) {
+    document.body.innerHTML = "<pre>Erro: #auth não encontrado no login.html</pre>";
+    return;
+  }
+
+  // Renderiza ANTES de qualquer chamada ao Supabase (evita “azul vazio”)
+  renderAuth(root);
+
+  // Se getSession estiver quebrado/undefined, a tela vai mostrar aqui
+  let session = null;
+  if (typeof getSession === "function") {
+    session = await getSession();
+  } else {
+    toast("getSession() não existe em supabaseClient.js", "error");
+  }
+
+  if (session) {
+    location.href = "./index.html#/dashboard";
+    return;
+  }
 
   const formLogin = root.querySelector("#formLogin");
   const formSignup = root.querySelector("#formSignup");
-  if (!formLogin || !formSignup) {
-    toast("Tela de login corrompida (forms não encontrados).", "error");
-    return;
-  }
 
   formLogin.addEventListener("submit", async (e) => {
     e.preventDefault();
