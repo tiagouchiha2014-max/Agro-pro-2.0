@@ -1,12 +1,5 @@
 import { supabase } from "../supabaseClient.js";
 
-/**
- * Modelo simples:
- * - tabela produtos (id, fazenda_id, nome, unidade)
- * - tabela estoque_movs (id, fazenda_id, produto_id, tipo, quantidade, data, obs)
- * Saldo = soma(movs) por produto (ENTRADA +, SAIDA -)
- */
-
 export async function listProdutos(fazendaId) {
   const { data, error } = await supabase
     .from("produtos")
@@ -32,7 +25,7 @@ export async function createProduto(payload) {
 export async function listMovs(fazendaId, { limit = 50 } = {}) {
   const { data, error } = await supabase
     .from("estoque_movs")
-    .select("id,fazenda_id,produto_id,tipo,quantidade,data,obs,created_at")
+    .select("id,fazenda_id,produto_id,tipo,qtd,custo_unit,ref_tipo,ref_id,obs,data,created_at")
     .eq("fazenda_id", fazendaId)
     .order("data", { ascending: false })
     .limit(limit);
@@ -45,11 +38,19 @@ export async function addMov(payload) {
   const { data, error } = await supabase
     .from("estoque_movs")
     .insert([payload])
-    .select("id,fazenda_id,produto_id,tipo,quantidade,data,obs,created_at")
+    .select("id,fazenda_id,produto_id,tipo,qtd,custo_unit,ref_tipo,ref_id,obs,data,created_at")
     .single();
 
   if (error) throw error;
   return data;
 }
 
-// (opcional) visão de saldo via RPC ou view; aqui calculo no front por simplicidade
+export async function listSaldos(fazendaId) {
+  const { data, error } = await supabase
+    .from("vw_estoque_saldos")
+    .select("fazenda_id,produto_id,saldo")
+    .eq("fazenda_id", fazendaId);
+
+  if (error) throw error;
+  return data || [];
+}
