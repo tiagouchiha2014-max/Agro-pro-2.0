@@ -2,35 +2,34 @@ import { renderShell, setActiveMenu, setTopbar } from "./ui/shell.js";
 import { toast } from "./ui/toast.js";
 import { requireAuth, loadFarmCtx } from "./session.js";
 
-// ------------------------------------------------------------
-// ROTAS (lazy-load por página)
-// ------------------------------------------------------------
-const ROUTES = {
-  "#/dashboard": () => import("./pages/dashboard.js"),
-  "#/fazendas": () => import("./pages/fazendas.js"),
-  "#/talhoes": () => import("./pages/talhoes.js"),
-  "#/produtos": () => import("./pages/produtos.js"),
-  "#/aplicacoes": () => import("./pages/aplicacoes.js"),
-  "#/estoque": () => import("./pages/estoque.js"),
-  "#/config": () => import("./pages/config.js"),
-};
+const DEFAULT_PAGE = "dashboard";
 
-const DEFAULT_ROUTE = "#/dashboard";
+// -------------------------------------
+// Route parsing + sanitização
+// -------------------------------------
+function parsePageFromHash() {
+  // Aceita: #/dashboard ou #/fazendas?x=1
+  const raw = (location.hash || "").trim();
 
-// ------------------------------------------------------------
-// HELPERS
-// ------------------------------------------------------------
-function normalizeHash(hash) {
-  if (!hash || hash === "#") return DEFAULT_ROUTE;
-  // mantém só a parte da rota (sem query string)
-  const base = hash.split("?")[0];
-  return ROUTES[base] ? base : DEFAULT_ROUTE;
+  if (!raw || raw === "#" || raw === "#/") return DEFAULT_PAGE;
+
+  const noQuery = raw.split("?")[0];         // "#/dashboard"
+  const page = noQuery.replace(/^#\//, "");  // "dashboard"
+
+  // Sanitiza: só letras, números, _ e -
+  // (evita "#/../../algo" e afins)
+  if (!/^[a-z0-9_-]+$/i.test(page)) return DEFAULT_PAGE;
+
+  return page || DEFAULT_PAGE;
 }
 
-function getRoute() {
-  return normalizeHash(location.hash);
+function currentRouteHash(page) {
+  return `#/${page}`;
 }
 
+// -------------------------------------
+// Render lock (evita corrida)
+// -------------------------------------
 let isRendering = false;
 let pendingRender = false;
 
@@ -47,21 +46,42 @@ async function safeRender() {
     isRendering = false;
     if (pendingRender) {
       pendingRender = false;
-      // roda mais uma vez caso tenha mudado rota durante render
       queueMicrotask(() => safeRender());
     }
   }
 }
 
-// ------------------------------------------------------------
-// RENDER PRINCIPAL
-// ------------------------------------------------------------
+// -------------------------------------
+// Loader de página (auto-router)
+// -------------------------------------
+async function loadPageModule(page) {
+  // tenta ./pages/{page}.js
+  try {
+    return await import(`./pages/${page}.js`);
+  } catch (e) {
+    // fallback: tenta dashboard
+    if (page !== DEFAULT_PAGE) {
+      try {
+        toast("Página não encontrada. Indo para o Dashboard…", "info");
+        location.hash = currentRouteHash(DEFAULT_PAGE);
+        return await import(`./pages/${DEFAULT_PAGE}.js`);
+      } catch (e2) {
+        throw e2;
+      }
+    }
+    throw e;
+  }
+}
+
+// -------------------------------------
+// Render principal
+// -------------------------------------
 async function renderRoute() {
   // 1) Auth
   const session = await requireAuth();
   if (!session) return;
 
-  // 2) Carregar contexto da fazenda (cria se não existir)
+  // 2) Contexto fazenda (cria se não existir)
   let farmCtx;
   try {
     farmCtx = await loadFarmCtx();
@@ -82,18 +102,17 @@ async function renderRoute() {
     return;
   }
 
-  // 3) Router
-  const route = getRoute();
+  // 3) Router (auto)
+  const page = parsePageFromHash();
+  const route = currentRouteHash(page);
+
   setActiveMenu(route);
+  setTopbar({ title: "", meta: farmCtx?.fazenda_nome || "" }); // evita “flash”
 
-  // Placeholder neutro (evita “flash”)
-  setTopbar({ title: "", meta: farmCtx?.fazenda_nome || "" });
-
-  // 4) Carrega módulo da página
-  const loader = ROUTES[route] || ROUTES[DEFAULT_ROUTE];
+  // 4) Carrega módulo e renderiza
   let mod;
   try {
-    mod = await loader();
+    mod = await loadPageModule(page);
   } catch (e) {
     console.error(e);
     toast("Falha ao carregar a página.", "error");
@@ -109,12 +128,11 @@ async function renderRoute() {
     return;
   }
 
-  // 5) Render da página
   try {
     if (!mod || typeof mod.render !== "function") {
-      throw new Error(`Página inválida: ${route} (export render() ausente)`);
+      throw new Error(`Página inválida: ${page} (export render() ausente)`);
     }
-    await mod.render({ session, farmCtx, route });
+    await mod.render({ session, farmCtx, route, page });
   } catch (e) {
     console.error(e);
     toast("Erro ao renderizar a página.", "error");
@@ -130,26 +148,19 @@ async function renderRoute() {
   }
 }
 
-// ------------------------------------------------------------
-// BOOT
-// ------------------------------------------------------------
+// -------------------------------------
+// Boot
+// -------------------------------------
 function boot() {
-  // garante shell 1x
   renderShell();
 
   // rota inicial
-  if (!location.hash || location.hash === "#") {
-    location.hash = DEFAULT_ROUTE;
+  if (!location.hash || location.hash === "#" || location.hash === "#/") {
+    location.hash = currentRouteHash(DEFAULT_PAGE);
   }
 
-  // listeners
   window.addEventListener("hashchange", safeRender);
-
-  // primeira renderização
   safeRender();
 }
 
-// ------------------------------------------------------------
-// START
-// ------------------------------------------------------------
 boot();
