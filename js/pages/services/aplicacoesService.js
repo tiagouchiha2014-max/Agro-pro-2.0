@@ -1,12 +1,10 @@
 import { supabase } from "../supabaseClient.js";
 
 /**
- * Modelo:
- * aplicacoes (id, fazenda_id, talhao_id, data, obs)
- * aplicacao_itens (id, aplicacao_id, fazenda_id, produto_id, quantidade)
- *
- * Baixa estoque: por enquanto vamos criar também estoque_movs do tipo "SAIDA"
- * (Mais seguro é migrar isso para uma RPC/transação no banco depois.)
+ * Schema:
+ * aplicacoes: (id, fazenda_id, talhao_id, data(date), obs)
+ * aplicacao_itens: (id, aplicacao_id, fazenda_id, produto_id, qtd)
+ * estoque_movs: (tipo IN/OUT/ADJ, qtd, ref_tipo/ref_id)
  */
 
 export async function listAplicacoes(fazendaId, { limit = 50 } = {}) {
@@ -32,27 +30,30 @@ export async function createAplicacao({ fazenda_id, talhao_id, data, obs, itens 
 
   // 2) cria itens
   const itensRows = (itens || [])
-    .filter(x => x?.produto_id && Number(x?.quantidade) > 0)
+    .filter(x => x?.produto_id && Number(x?.qtd) > 0)
     .map(x => ({
       aplicacao_id: apl.id,
       fazenda_id,
       produto_id: x.produto_id,
-      quantidade: Number(x.quantidade),
+      qtd: Number(x.qtd),
     }));
 
   if (itensRows.length) {
     const { error: errI } = await supabase.from("aplicacao_itens").insert(itensRows);
     if (errI) throw errI;
 
-    // 3) baixa estoque (SAIDA)
+    // 3) baixa estoque (OUT) com referência
     const movs = itensRows.map(it => ({
       fazenda_id,
       produto_id: it.produto_id,
-      tipo: "SAIDA",
-      quantidade: it.quantidade,
-      data,
-      obs: `Baixa por aplicação ${apl.id}`,
+      tipo: "OUT",
+      qtd: it.qtd,
+      ref_tipo: "APLICACAO",
+      ref_id: apl.id,
+      obs: `Baixa por aplicação`,
+      data: new Date(data).toISOString(),
     }));
+
     const { error: errM } = await supabase.from("estoque_movs").insert(movs);
     if (errM) throw errM;
   }
@@ -61,7 +62,6 @@ export async function createAplicacao({ fazenda_id, talhao_id, data, obs, itens 
 }
 
 export async function deleteAplicacao(id, fazendaId) {
-  // Simples: apaga aplicação. (Depois fazemos “estorno” automático.)
   const { error } = await supabase
     .from("aplicacoes")
     .delete()
@@ -69,4 +69,6 @@ export async function deleteAplicacao(id, fazendaId) {
     .eq("fazenda_id", fazendaId);
 
   if (error) throw error;
+
+  // (Ainda não estorna estoque aqui — faremos via RPC depois)
 }
